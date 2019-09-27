@@ -1,0 +1,14 @@
+---
+
+- name: create Transit Gateway
+  ec2_transit_gateway:
+    asn: '{{ aws_transit_gateway_asn }}'
+    auto_associate: '{{ aws_transit_gateway_auto_associate }}'
+    auto_attach: '{{ aws_transit_gateway_auto_attach }}'
+    auto_propagate: '{{ aws_transit_gateway_auto_propagate }}'
+    description: '{{ aws_transit_gateway_description }}'
+    dns_support: '{{ aws_transit_gateway_dns_support }}'
+    profile: '{{ aws_profile }}'
+    region: '{{ aws_region }}'
+    vpn_ecmp_support: '{{ aws_transit_gateway_vpn_ecmp_support }}'
+  register: _aws_transit_gateway
