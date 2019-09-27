@@ -3,3 +3,4 @@
 - include_tasks: cgw.yml
 - include_tasks: gateway.yml
 - include_tasks: vpn.yml
+- include_tasks: directconnect.yml

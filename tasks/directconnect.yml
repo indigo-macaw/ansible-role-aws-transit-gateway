@@ -1,0 +1,48 @@
+---
+
+- include_role:
+    name: aws-directconnect
+    tasks_from: gateway_id
+
+- name: retrieve existing Direct Connect and Transit Gateway association data
+  command: >
+    aws directconnect
+      describe-direct-connect-gateway-associations
+        --associated-gateway-id 
+          '{{ _aws_transit_gateway.transit_gateway.transit_gateway_id }}'
+        --profile '{{ aws_profile }}'
+        --query 'directConnectGatewayAssociations
+                 [?
+                   associationState == `associating`
+                   ||
+                   associationState == `associated`
+                   ||
+                   associationState == `updating`
+                 ]'
+        --region '{{ aws_region }}'
+  register: _aws_transit_gateway_association_existing
+  changed_when: false
+
+- name: set existing Direct Connect and Transit Gateway association facts
+  set_fact:
+    _aws_transit_gateway_association_id_existing: >-
+      {{
+        _aws_transit_gateway_association_existing.stdout
+        | from_json
+        | json_query("[0].associationId")
+      }}
+
+- name: associate Direct Connect and Transit Gateways
+  command: >
+    aws directconnect
+      create-direct-connect-gateway-association
+        --add-allowed-prefixes-to-direct-connect-gateway
+          '{{ aws_directconnect_gateway_allowed_prefixes | to_nice_json }}'
+        --direct-connect-gateway-id
+          '{{ _aws_directconnect_gateway_id }}'
+        --gateway-id
+          '{{ _aws_transit_gateway.transit_gateway.transit_gateway_id }}'
+        --profile '{{ aws_profile }}'
+        --region '{{ aws_region }}'
+  register: _aws_transit_gateway_association
+  when: _aws_transit_gateway_association_id_existing == ''
