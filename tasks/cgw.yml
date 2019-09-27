@@ -1,0 +1,16 @@
+---
+
+- name: create Customer Gateways
+  ec2_customer_gateway:
+    bgp_asn: '{{ aws_directconnect_asn }}'
+    ip_address: '{{ aws_transit_gateway_cgw.ip_address }}'
+    name: '{{ aws_transit_gateway_cgw.name }}'
+    profile: '{{ aws_profile }}'
+    region: '{{ aws_region }}'
+  loop: '{{ aws_transit_gateway_cgws }}'
+  loop_control:
+    label: >-
+      {{ aws_transit_gateway_cgw.name }}
+      ({{ aws_transit_gateway_cgw.ip_address }})
+    loop_var: aws_transit_gateway_cgw
+  register: _aws_transit_gateway_cgws

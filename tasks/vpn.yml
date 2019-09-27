@@ -1,0 +1,47 @@
+---
+
+- name: get existing VPN connection facts
+  ec2_vpc_vpn_facts:
+    filters:
+      state: ['pending', 'available']
+      transit-gateway-id:
+        '{{ _aws_transit_gateway.transit_gateway.transit_gateway_id }}'
+    profile: '{{ aws_profile }}'
+    region: '{{ aws_region }}'
+  register: _aws_transit_gateway_vpn_existing
+
+- name: create VPN connections between Customer and Transit Gateways
+  command: >
+    aws ec2
+      create-vpn-connection
+        --customer-gateway-id
+          '{{ _aws_transit_gateway_cgw
+              .gateway.customer_gateway.customer_gateway_id }}'
+        --options
+          '{
+            "StaticRoutesOnly": false,
+            "TunnelOptions": [
+              {
+                "TunnelInsideCidr":
+                  "'{{ aws_transit_gateway_cgws[i].tunnel_1_inside_cidr }}'"
+              },
+              {
+                "TunnelInsideCidr":
+                  "'{{ aws_transit_gateway_cgws[i].tunnel_2_inside_cidr }}'"
+              }
+            ]
+          }'
+        --profile '{{ aws_profile }}'
+        --region '{{ aws_region }}'
+        --transit-gateway-id
+          '{{ _aws_transit_gateway.transit_gateway.transit_gateway_id }}'
+        --type ipsec.1
+  register: _aws_transit_gateway_vpn
+  loop: '{{ _aws_transit_gateway_cgws.results }}'
+  loop_control:
+    index_var: i
+    label: >-
+      {{ aws_transit_gateway_cgws[i].name }}
+      ({{ aws_transit_gateway_cgws[i].ip_address }})
+    loop_var: _aws_transit_gateway_cgw
+  when: _aws_transit_gateway_vpn_existing.vpn_connections == []
