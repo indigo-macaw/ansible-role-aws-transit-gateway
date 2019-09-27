@@ -31,6 +31,12 @@
         | from_json
         | json_query("[0].associationId")
       }}
+    _aws_directconnect_gateway_allowed_prefixes_existing: >
+      {{
+        _aws_transit_gateway_association_existing.stdout
+        | from_json
+        | json_query("[0].allowedPrefixesToDirectConnectGateway")        
+      }}
 
 - name: associate Direct Connect and Transit Gateways
   command: >
@@ -46,3 +52,37 @@
         --region '{{ aws_region }}'
   register: _aws_transit_gateway_association
   when: _aws_transit_gateway_association_id_existing == ''
+
+- name: update prefixes advertised to Direct Connect Gateway (add)
+  command: >
+    aws directconnect
+      update-direct-connect-gateway-association
+        --association-id '{{ _aws_transit_gateway_association_id_existing }}'
+        --add-allowed-prefixes-to-direct-connect-gateway
+          '{{ prefixes_to_add | to_nice_json }}'
+        --profile '{{ aws_profile }}'
+        --region '{{ aws_region }}'
+  vars:
+    prefixes_to_add: >
+      {{
+        aws_directconnect_gateway_allowed_prefixes
+        | difference(_aws_directconnect_gateway_allowed_prefixes_existing)
+      }}
+  when: prefixes_to_add != []
+
+- name: update prefixes advertised to Direct Connect Gateway (remove)
+  command: >
+    aws directconnect
+      update-direct-connect-gateway-association
+        --association-id '{{ _aws_transit_gateway_association_id_existing }}'
+        --remove-allowed-prefixes-to-direct-connect-gateway
+          '{{ prefixes_to_remove | to_nice_json }}'
+        --profile '{{ aws_profile }}'
+        --region '{{ aws_region }}'
+  vars:
+    prefixes_to_remove: >
+      {{
+        _aws_directconnect_gateway_allowed_prefixes_existing
+        | difference(aws_directconnect_gateway_allowed_prefixes)
+      }}
+  when: prefixes_to_remove != []
