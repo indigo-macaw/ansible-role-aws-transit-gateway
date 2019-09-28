@@ -10,5 +10,7 @@
     dns_support: '{{ aws_transit_gateway_dns_support }}'
     profile: '{{ aws_profile }}'
     region: '{{ aws_region }}'
+    tags:
+      Name: '{{ aws_transit_gateway_name }}'
     vpn_ecmp_support: '{{ aws_transit_gateway_vpn_ecmp_support }}'
   register: _aws_transit_gateway
