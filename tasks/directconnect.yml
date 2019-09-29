@@ -53,6 +53,32 @@
   register: _aws_transit_gateway_association
   when: _aws_transit_gateway_association_id_existing == ''
 
+- name: get Transit Gateway to Direct Connect Gateway attachment data
+  command: >
+    aws ec2
+      describe-transit-gateway-attachments
+        --filters Name=association.state,Values=associating,associated
+                  Name=resource-type,Values=direct-connect-gateway
+        --output text
+        --profile '{{ aws_profile }}'
+        --query 'TransitGatewayAttachments[0].TransitGatewayAttachmentId'
+        --region '{{ aws_region }}'
+  register: _aws_transit_gateway_attachment
+  changed_when: false
+
+- name: set Transit Gateway to Direct Connect Gateway attachment ID fact
+  set_fact:
+    _aws_transit_gateway_attachment_id: >-
+      {{ _aws_transit_gateway_attachment.stdout }}
+
+- name: add Name tag to Transit Gateway to Direct Connect Gateway attachment
+  ec2_tag:
+    profile: '{{ aws_profile }}'
+    region: '{{ aws_region }}'
+    resource: '{{ _aws_transit_gateway_attachment_id }}'
+    tags:
+      Name: Direct Connect Gateway
+
 - name: update prefixes advertised to Direct Connect Gateway (add)
   command: >
     aws directconnect
