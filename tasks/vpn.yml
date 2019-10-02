@@ -99,3 +99,44 @@
   loop_control:
     label: '{{ _aws_transit_gateway_vpn_connection.vpn_connection_id }}'
     loop_var: _aws_transit_gateway_vpn_connection
+
+- name: get Transit Gateway VPN attachments data
+  command: >
+    aws ec2
+      describe-transit-gateway-attachments
+        --filters
+          Name=association.state,Values=associating,associated
+          Name=resource-type,Values=vpn
+          Name=state,Values=available,modifying,pendingAcceptance,pending
+        --profile '{{ aws_profile }}'
+        --region '{{ aws_region }}'
+  register: _aws_transit_gateway_vpn_attachments
+  changed_when: false
+
+- name: set Transit Gateway VPN attachments fact
+  set_fact:
+    _aws_transit_gateway_vpn_attachments: >-
+      {{
+        _aws_transit_gateway_vpn_attachments.stdout
+        | from_json
+        | json_query("TransitGatewayAttachments")
+      }}
+
+- name: add Name tag to Transit Gateway VPN attachments
+  ec2_tag:
+    profile: '{{ aws_profile }}'
+    region: '{{ aws_region }}'
+    resource: >-
+      {{ _aws_transit_gateway_vpn_attachment.TransitGatewayAttachmentId }}
+    tags:
+      Name: >-
+        VPN:
+        {{
+          _aws_transit_gateway_vpn_names
+          [_aws_transit_gateway_vpn_attachment.ResourceId]
+        }}
+  loop: '{{ _aws_transit_gateway_vpn_attachments }}'
+  loop_control:
+    label: >-
+      {{ _aws_transit_gateway_vpn_attachment.TransitGatewayAttachmentId }}
+    loop_var: _aws_transit_gateway_vpn_attachment
