@@ -45,3 +45,98 @@
       ({{ aws_transit_gateway_cgws[i].ip_address }})
     loop_var: _aws_transit_gateway_cgw
   when: _aws_transit_gateway_vpn_existing.vpn_connections == []
+
+- name: update existing VPN connection facts
+  ec2_vpc_vpn_facts:
+    filters:
+      state: ['pending', 'available']
+      transit-gateway-id:
+        '{{ _aws_transit_gateway.transit_gateway.transit_gateway_id }}'
+    profile: '{{ aws_profile }}'
+    region: '{{ aws_region }}'
+  register: _aws_transit_gateway_vpn_existing
+
+- name: build mapping of VPN connection IDs to names
+  set_fact:
+    _aws_transit_gateway_vpn_names: >-
+      {{
+        _aws_transit_gateway_vpn_names
+        | default({})
+        | combine({
+            _aws_transit_gateway_vpn_connection.vpn_connection_id:
+              (
+                _aws_transit_gateway_cgws
+                | json_query("
+                    results[].gateway.customer_gateway
+                    | [?
+                        customer_gateway_id
+                        ==
+                        `" + _aws_transit_gateway_vpn_connection
+                             .customer_gateway_id + "`
+                      ]
+                    | [0].tags[? key == `Name`].value
+                    | [0]
+                  ")
+              )
+          })
+      }}
+  loop: '{{ _aws_transit_gateway_vpn_existing.vpn_connections }}'
+  loop_control:
+    label: '{{ _aws_transit_gateway_vpn_connection.vpn_connection_id }}'
+    loop_var: _aws_transit_gateway_vpn_connection
+
+- name: add Name tag to VPN connections
+  ec2_tag:
+    profile: '{{ aws_profile }}'
+    region: '{{ aws_region }}'
+    resource: '{{ _aws_transit_gateway_vpn_connection.vpn_connection_id }}'
+    tags:
+      Name: >-
+        {{ _aws_transit_gateway_vpn_names
+           [_aws_transit_gateway_vpn_connection.vpn_connection_id]
+        }}
+  loop: '{{ _aws_transit_gateway_vpn_existing.vpn_connections }}'
+  loop_control:
+    label: '{{ _aws_transit_gateway_vpn_connection.vpn_connection_id }}'
+    loop_var: _aws_transit_gateway_vpn_connection
+
+- name: get Transit Gateway VPN attachments data
+  command: >
+    aws ec2
+      describe-transit-gateway-attachments
+        --filters
+          Name=association.state,Values=associating,associated
+          Name=resource-type,Values=vpn
+          Name=state,Values=available,modifying,pendingAcceptance,pending
+        --profile '{{ aws_profile }}'
+        --region '{{ aws_region }}'
+  register: _aws_transit_gateway_vpn_attachments
+  changed_when: false
+
+- name: set Transit Gateway VPN attachments fact
+  set_fact:
+    _aws_transit_gateway_vpn_attachments: >-
+      {{
+        _aws_transit_gateway_vpn_attachments.stdout
+        | from_json
+        | json_query("TransitGatewayAttachments")
+      }}
+
+- name: add Name tag to Transit Gateway VPN attachments
+  ec2_tag:
+    profile: '{{ aws_profile }}'
+    region: '{{ aws_region }}'
+    resource: >-
+      {{ _aws_transit_gateway_vpn_attachment.TransitGatewayAttachmentId }}
+    tags:
+      Name: >-
+        VPN:
+        {{
+          _aws_transit_gateway_vpn_names
+          [_aws_transit_gateway_vpn_attachment.ResourceId]
+        }}
+  loop: '{{ _aws_transit_gateway_vpn_attachments }}'
+  loop_control:
+    label: >-
+      {{ _aws_transit_gateway_vpn_attachment.TransitGatewayAttachmentId }}
+    loop_var: _aws_transit_gateway_vpn_attachment
