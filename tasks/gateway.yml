@@ -12,5 +12,7 @@
     region: '{{ aws_region }}'
     tags:
       Name: '{{ aws_transit_gateway_name }}'
+      Account: '{{ aws_transit_gateway_account | default(omit) }}'
+      NumberAttachedVPCs: '{{ aws_transit_gateway_vpcs | default(omit) }}'
     vpn_ecmp_support: '{{ aws_transit_gateway_vpn_ecmp_support }}'
   register: _aws_transit_gateway
